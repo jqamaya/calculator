@@ -1,4 +1,4 @@
-# Calculator
+# Calculator (React-Native)
 Calculator with basic arithmetic operations and conversion from Arabic to Roman Numeral and vice versa.
 
 ## Installation
