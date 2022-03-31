@@ -6,7 +6,7 @@
  * @flow strict-local
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { Node } from 'react';
 import {
   SafeAreaView,
@@ -21,137 +21,78 @@ import {
 import Row from './src/components/Row';
 import Button from './src/components/Button';
 
+import { handleNumber, handleEqual } from './src/util/Calculator';
+import { convertToArabic, convertToRoman } from './src/util/Converter';
+
 const App: () => Node = () => {
-  const [count, setCount] = useState('0 ');
-  const [dec, setDec] = useState('1');
   const [shouldConvertToRoman, setShouldConvertToRoman] = useState(false);
+  
+  const [display, setDisplay] = useState('0 ');
+  const [currentValue, setCurrentValue] = useState("0")
+  const [previousValue, setPreviousValue] = useState(null)
+  const [operator, setOperator] = useState(null)
 
-  const removeWhiteSpaces = (value) => {
-    return value.replace(/\s/g, '')
+  React.useEffect(() => {
+    convert(currentValue)
+  }, [shouldConvertToRoman]);
+
+  React.useEffect(() => {
+    setDisplay(currentValue)
+  }, [currentValue]);
+
+  const handleOperator = (value) => {
+    setOperator(value)
+    setPreviousValue(currentValue)
+    setCurrentValue('0')
   }
 
-  const isOperator = (val) => {
-    return (
-      val == '+' 
-      || val == '*' 
-      || val == '-' 
-      || val == '/'
-    )
+  const handleClear = () => {
+    setCurrentValue('0')
+    setPreviousValue(null)
+    setOperator(null)
+    setDisplay('0')
   }
 
-  const isRoman = (val) => {
-    return (
-      val == 'I' 
-      || val == 'II' 
-      || val == 'III' 
-      || val == 'IV' 
-      || val == 'V' 
-      || val == 'VI' 
-      || val == 'VII' 
-      || val == 'VIII' 
-      || val == 'IX'
-    )
+  const calculate = () => {
+    let currentState = {
+      currentValue,
+      previousValue,
+      operator,
+    }
+    currentState = handleEqual(currentState)
+    setCurrentValue(currentState.currentValue)
+    setPreviousValue(currentState.previousValue)
+    setOperator(currentState.operator)
   }
 
-  const handleInput = (val) => {
-    const integer = removeWhiteSpaces(val)
-    const value = convert(val)
-
-    const trim = removeWhiteSpaces(value)
-    const trimCount = removeWhiteSpaces(count)
-    const lastIndexVal = trimCount[trimCount.length - 1]
-
-    if (isOperator(trim) && isOperator(lastIndexVal)) {
-      setCount(count);
-      setDec(dec);
-    } else {
-      if (trimCount == '0') {
-        if (isOperator(trim)) {
-          setCount(count); 
-          setDec(dec);
-        } else {
-          setCount(value); 
-          setDec(integer);
-        }
-      } else {
-        if ((trimCount == 'I' && isRoman(trim))) {
-          setCount(value); 
-          setDec(integer)
-        } else {
-          setCount(count.concat(value)); 
-          setDec(dec.concat(integer))
-        }
-      }
+  const handleTap = (type, value = null) => {
+    switch (type) {
+      case 'number': 
+        setCurrentValue(handleNumber(value, currentValue))
+        break;
+      case 'operator':
+        handleOperator(value)
+        break;
+      case 'equal':
+        calculate()
+        break;
+      case 'clear':
+        handleClear()
+        break;
+      default:
+        // nothing to do
+        break;
     }
   }
 
-  const compute = () => {
+  const convert = (val) => {
+    let valToDisplay = ''
     if (shouldConvertToRoman) {
-      const stringList = eval(dec).toString()
-      const mask = convert(stringList)
-
-      setDec(stringList)
-      setCount((mask.toString()) + ' ')
+      valToDisplay = convertToRoman(val)
     } else {
-      setCount((eval(removeWhiteSpaces(count)).toString()) + ' ')
+      valToDisplay = convertToArabic(val)
     }
-  }
-
-  const convert = (val = '') => {
-    if (shouldConvertToRoman) {
-      return (convertToRoman(val).length != 0 ? convertToRoman(val) : val) + (' ')
-    }
-    return (convertToArabic(val) ? convertToArabic(val) : val) + (' ')
-  }
-
-  const chartRoman = [
-    ['M', 1000],
-    ['CM', 900],
-    ['D', 500],
-    ['CD', 400],
-    ['C', 100],
-    ['XC', 90],
-    ['L', 50],
-    ['XL', 40],
-    ['X', 10],
-    ['IX', 9],
-    ['V', 5],
-    ['IV', 4],
-    ['I', 1]
-  ];
-
-  const convertToRoman = (val) => (
-    chartRoman.reduce((acc, numeral) => {
-      const [romVal, remainder] = acc;
-      const [roman, value] = numeral;
-      return [romVal + roman.repeat(remainder / value), remainder % value];
-    }, ['', val])[0]
-  )
-
-  const chartArabic = {
-    I: 1,
-    IV: 4,
-    V: 5,
-    IX: 9,
-    X: 10,
-    XL: 40,
-    L: 50,
-    XC: 90,
-    C: 100,
-    CD: 400,
-    D: 500,
-    CM: 900,
-    M: 1000
-  }
-
-  const convertToArabic = (val) => {
-    const dec = val.slice(0, 2);
-    if (!val) {
-      return 0;
-    }
-    return dec in chartArabic
-      ? chartArabic[dec] + convertToArabic(val.slice(2)) 
-      : chartArabic[val[0]] + convertToArabic(val.slice(1));
+    setCurrentValue(valToDisplay)
   }
 
   return (
@@ -159,13 +100,15 @@ const App: () => Node = () => {
       <StatusBar barStyle='light-content' />
 
       <Text style={styles.value}>
-        {count}
+        {display}
       </Text>
       <Row>
         <Button
           text='C'
           theme='secondary'
-          onPress={() => { setCount(shouldConvertToRoman ? 'I ' : '0 '); setDec('1') }}
+          onPress={() => {
+            handleTap('clear')
+          }}
         />
         {/* Arabic */}
         <Button
@@ -173,9 +116,7 @@ const App: () => Node = () => {
           theme='secondary'
           isPressed={shouldConvertToRoman === false}
           onPress={() => { 
-            setShouldConvertToRoman(!shouldConvertToRoman); 
-            convert(); 
-            setCount(!shouldConvertToRoman ? 'I ' : '0 '); 
+            setShouldConvertToRoman(false);
           }}
         />
         {/* Roman Numeral */}
@@ -184,48 +125,46 @@ const App: () => Node = () => {
           theme='secondary'
           isPressed={shouldConvertToRoman === true}
           onPress={() => { 
-            setShouldConvertToRoman(!shouldConvertToRoman); 
-            convert(); 
-            setCount(!shouldConvertToRoman ? 'I ' : '0 '); 
+            setShouldConvertToRoman(true);
           }}
         />
         <Button
           text='÷'
           theme='accent'
-          onPress={() => handleInput('/')}
+          onPress={() => handleTap('operator', '/')}
         />
       </Row>
 
       <Row>
-        <Button text={shouldConvertToRoman ? 'VII' : '7'} onPress={() => handleInput('7')} />
-        <Button text={shouldConvertToRoman ? 'VIII' : '8'} onPress={() => handleInput('8')} />
-        <Button text={shouldConvertToRoman ? 'IX' : '9'} onPress={() => handleInput('9')} />
+        <Button text={shouldConvertToRoman ? 'VII' : '7'} onPress={() => handleTap('number', '7')} />
+        <Button text={shouldConvertToRoman ? 'VIII' : '8'} onPress={() => handleTap('number', '8')} />
+        <Button text={shouldConvertToRoman ? 'IX' : '9'} onPress={() => handleTap('number', '9')} />
         <Button
           text='×'
           theme='accent'
-          onPress={() => handleInput('*')}
+          onPress={() => handleTap('operator', '*')}
         />
       </Row>
 
       <Row>
-        <Button text={shouldConvertToRoman ? 'IV' : '4'} onPress={() => handleInput('4')} />
-        <Button text={shouldConvertToRoman ? 'V' : '5'} onPress={() => handleInput('5')} />
-        <Button text={shouldConvertToRoman ? 'VI' : '6'} onPress={() => handleInput('6')} />
+        <Button text={shouldConvertToRoman ? 'IV' : '4'} onPress={() => handleTap('number', '4')} />
+        <Button text={shouldConvertToRoman ? 'V' : '5'} onPress={() => handleTap('number', '5')} />
+        <Button text={shouldConvertToRoman ? 'VI' : '6'} onPress={() => handleTap('number', '6')} />
         <Button
           text='—'
           theme='accent'
-          onPress={() => handleInput('-')}
+          onPress={() => handleTap('operator', '-')}
         />
       </Row>
 
       <Row>
-        <Button text={shouldConvertToRoman ? 'I' : '1'} onPress={() => handleInput('1')} />
-        <Button text={shouldConvertToRoman ? 'II' : '2'} onPress={() => handleInput('2')} />
-        <Button text={shouldConvertToRoman ? 'III' : '3'} onPress={() => handleInput('3')} />
+        <Button text={shouldConvertToRoman ? 'I' : '1'} onPress={() => handleTap('number', '1')} />
+        <Button text={shouldConvertToRoman ? 'II' : '2'} onPress={() => handleTap('number', '2')} />
+        <Button text={shouldConvertToRoman ? 'III' : '3'} onPress={() => handleTap('number', '3')} />
         <Button
           text='+'
           theme='accent'
-          onPress={() => handleInput('+')}
+          onPress={() => handleTap('operator', '+')}
         />
       </Row>
 
@@ -235,14 +174,14 @@ const App: () => Node = () => {
           <Button
             text='0'
             size='double'
-            onPress={() => handleInput('0')}
+            onPress={() => handleTap('number', '0')}
           />
         }
 
         <Button
           text='='
           theme='accent'
-          onPress={() => compute()}
+          onPress={() => handleTap('equal')}
         />
       </Row>
     </SafeAreaView>
